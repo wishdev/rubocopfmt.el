@@ -63,6 +63,11 @@
   :type 'boolean
   :group 'rubocopfmt)
 
+(defcustom rubocopfmt-quiet nil
+  "Lowers the amount of 'logged' data When t."
+  :type 'boolean
+  :group 'rubocopfmt)
+
 (defcustom rubocopfmt-disabled-cops
   '("Lint/Debugger"              ; Don't remove debugger calls.
     "Lint/UnusedBlockArgument"   ; Don't rename unused block arguments.
@@ -235,8 +240,12 @@ If FILE is not found in DIRECTORY, the parent of DIRECTORY will be searched."
           (erase-buffer)
           (goto-char (point-min))
           (insert-buffer-substring resultbuf))
-          (display-buffer errbuf))))
+        (display-buffer errbuf))))
 
+(defun log (logmsg &rest formatparams)
+  "Log the message."
+  (if (not rubocopfmt-quiet)
+      (apply #'message logmsg formatparams)))
 
 ;;;###autoload
 (defun rubocopfmt ()
@@ -276,8 +285,8 @@ If FILE is not found in DIRECTORY, the parent of DIRECTORY will be searched."
           (with-current-buffer patchbuf (erase-buffer))
 
           (let ((current-directory src-dir))
-            (message "Calling rubocop from directory \"%s\": %s %s"
-                     src-dir fmt-command (mapconcat 'identity fmt-args " "))
+            (log "Calling rubocop from directory \"%s\": %s %s"
+                 src-dir fmt-command (mapconcat 'identity fmt-args " "))
             (apply #'call-process-region (point-min) (point-max)
                    fmt-command nil resultbuf nil fmt-args)
             (if (rubocopfmt--parse-result resultbuf tmpfile)
@@ -285,9 +294,9 @@ If FILE is not found in DIRECTORY, the parent of DIRECTORY will be searched."
                                      nil patchbuf nil "-n" "-" tmpfile)))
 
           (if (= (buffer-size patchbuf) 0)
-              (message "Buffer is already rubocopfmted")
+              (log "Buffer is already rubocopfmted")
             (rubocopfmt--apply-rcs-patch patchbuf)
-            (message "Applied rubocopfmt")))
+            (log "Applied rubocopfmt")))
 
       (delete-file tmpfile)
       (kill-buffer resultbuf)
@@ -312,7 +321,7 @@ the buffer, format with `lsp-format-buffer' instead."
     (if (and rubocopfmt-on-save-use-lsp-format-buffer
              (bound-and-true-p lsp-mode))
         (lsp-format-buffer)
-        (rubocopfmt))))
+      (rubocopfmt))))
 
 (provide 'rubocopfmt)
 ;;; rubocopfmt.el ends here
